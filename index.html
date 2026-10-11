@@ -285,6 +285,15 @@ button:focus-visible{outline:2px solid var(--me);outline-offset:2px}
       </div>
     </div>
     <div>
+      <div class="lab">电脑难度</div>
+      <div class="seg" id="diffSeg">
+        <button data-v="0">简单</button>
+        <button data-v="1" class="sel">普通</button>
+        <button data-v="2">困难</button>
+        <button data-v="3">地狱</button>
+      </div>
+    </div>
+    <div>
       <div class="lab">对局人数</div>
       <div class="seg" id="sizeSeg">
         <button data-n="1" class="sel">1v1 · 单人对电脑</button>
@@ -293,7 +302,7 @@ button:focus-visible{outline:2px solid var(--me);outline-offset:2px}
     </div>
     <div id="mpBox" class="mpbox" hidden></div>
     <div id="netStat" class="netstat">联机：检查中…</div>
-    <div class="netstat">游戏版本 v12</div>
+    <div class="netstat">游戏版本 v13</div>
     <ul class="rules">
       <li><b>操作：</b>左下摇杆走路，拖屏幕转镜头，英雄自动攻击。点地面也能让英雄走过去。</li>
       <li><b>造兵：</b>点一下射击场、盾卫营、医院、工坊就能选兵种训练；点兵营可以合成强兵和研究科技（建筑上方会有「点我」提示）。</li>
@@ -327,6 +336,8 @@ if(!window.THREE){$('err').hidden=false;$('err').textContent='3D 引擎没有加
 const N=28;
 const RC=['#d9d6cc','#5cc98a','#4aa3f0','#b07cf0','#f2c14e'],RN=['白','绿','蓝','紫','金'],RNL=['普通','稀有','精良','史诗','传说'];
 const COST=[20,40,70,110,150],UPC=[0,150,300],RANGE=[0,3.6,4.6,5.6],SPAWN=[0,10,8,6];
+const DIFF=[{n:'简单',hp:.8,dm:.8,sp:1.3,inc:.8,cap:38,ctr:0},{n:'普通',hp:1,dm:1,sp:1,inc:1,cap:45,ctr:1},{n:'困难',hp:1.2,dm:1.15,sp:.85,inc:1.25,cap:55,ctr:1.4},{n:'地狱',hp:1.45,dm:1.3,sp:.7,inc:1.5,cap:65,ctr:1.9}];
+const DF=()=>DIFF[G&&G.diff!=null?G.diff:1],aiF=f=>G&&f===1-pf,ucap=f=>aiF(f)?DF().cap:f===0?48:45;
 const MATN={scrap:'废铁',crys:'晶核',mut:'异变素'},MATC={scrap:'#c98a5a',crys:'#6fe3ff',mut:'#9dff5c'};
 const H={
  stone:{f:0,r:0,n:'坚石之心',b:'石墙',hp:800,d:'血量很高，用来挡住尸潮（爬行者能越过）',any:1},
@@ -441,7 +452,7 @@ const ui={mode:'follow',heart:null,swap:[],sheet:null,pickOpts:null,selU:new Set
 
 function newGame(){
  uid=1;
- G={t:0,dur,day:dur/10,nextDay:dur/10,dayN:1,over:false,doom:false,night:false,nightK:0,stage:0,paused:true,joys:[null,null],nP,picks:{},openT:0,
+ G={diff,t:0,dur,day:dur/10,nextDay:dur/10,dayN:1,over:false,doom:false,night:false,nightK:0,stage:0,paused:true,joys:[null,null],nP,picks:{},openT:0,
   ter:[],occ:[],b:[],u:[],ruins:[],sites:[],decor:[],fx:[],pend:[],decals:[],nodes:[],
   explored:new Uint8Array(N*N),vis:new Uint8Array(N*N),fogT:0,aiT:0,uiT:0,
   F:[0,1].map(f=>({f,res:60,scrap:0,crys:0,mut:0,lvl:1,hearts:[],stance:'def',spawnT:4,main:null,heroes:[],heroT:[0,0],recall:[0,0],stanceS:['def','def'],rr:0,tech:{},ulv:{inf:0,arm:0,sup:0,mech:0},rs:null,eternalUsed:false,doomBuff:false,eliteT:dur*.22,eliteN:0,inv:0,aegisCd:0,
@@ -474,7 +485,7 @@ function addB(f,type,x,y,extra){
 }
 function addU(f,kind,x,y){
  const d=U[kind],F=G.F[f];
- let m=1;if(F){m=d.hero?1+.1*(F.lvl-1):1+.15*(F.lvl-1);if(f===0&&UCAT[kind])m*=1+.25*(F.ulv[UCAT[kind]]||0);if(f===1&&F.doomBuff&&!d.hero)m*=1.2;if(f===0&&!d.hero)m*=1.15+.15*G.stage}
+ let m=1;if(F){m=d.hero?1+.1*(F.lvl-1):1+.15*(F.lvl-1);if(f===0&&UCAT[kind])m*=1+.25*(F.ulv[UCAT[kind]]||0);if(f===1&&F.doomBuff&&!d.hero)m*=1.2;if(f===0&&!d.hero)m*=1.15+.15*G.stage;if(!d.hero&&aiF(f))m*=DF().hp}
  const u={id:uid++,f,kind,x:x+rnd(-.15,.15),y:y+rnd(-.15,.15),hp:d.hp*m,mhp:d.hp*m,cd:rnd(0,.5),frz:0,slow:0,rage:0,dest:null,cmd:null,cmdT:null,dead:false,off:rnd(0,Math.PI*2),ang:f===0?Math.PI/4:-Math.PI*3/4,mv:0,flash:0};
  G.u.push(u);return u;
 }
@@ -489,8 +500,11 @@ const pos=t=>t.isB?[t.cx,t.cy]:[t.x,t.y];
 
 // ================= rules =================
 function cap(F){let c=F.f===1?400:300;for(const b of G.b)if(b.f===F.f&&!b.dead){const t=b.as||b.type;if(t==='store')c+=150;if(t==='flesh')c+=100}return c}
-function rate(F){let r=F.f===1?2.5:2;for(const b of G.b)if(b.f===F.f&&!b.dead){const t=b.as||b.type;if(t==='farm'||t==='flesh')r+=1.5;if(t==='store')r+=.5}return r}
-function gain(F,v){F.res=Math.min(cap(F),F.res+v)}
+function rate(F){let r=F.f===1?2.5:2;for(const b of G.b)if(b.f===F.f&&!b.dead){const t=b.as||b.type;if(t==='farm'||t==='flesh')r+=1.5;if(t==='store')r+=.5}
+ if(aiF(F.f))r*=DF().inc;
+ if(F.f===0){const n=cntU(0);if(n>UPK)r-=(n-UPK)*.06}return r}
+const UPK=20;
+function gain(F,v){F.res=Math.max(0,Math.min(cap(F),F.res+v))}
 function canBuild(f,x,y,key){
  if(x<0||y<0||x>=N||y>=N||G.occ[y][x]||ruinAt(x,y))return false;
  if(key&&H[key]&&H[key].any){
@@ -561,7 +575,9 @@ function craft(f,i,own){
 
 function damage(t,v,src){
  if(t.dead)return;
- if(t.isB&&t.type==='main'&&t.f<2){const F=G.F[t.f];if(F.inv>0)return;if(t.f===0)v*=.85;if(eternalAlive(t.f))v*=.75;
+ const raw=src==='doom';if(raw)src=null;
+ if(src&&src.f!=null&&aiF(src.f))v*=DF().dm;
+ if(t.isB&&t.type==='main'&&t.f<2&&!raw){const F=G.F[t.f];if(F.inv>0)return;if(t.f===0)v*=.85;if(eternalAlive(t.f))v*=.75;
   if(F.aegisCd<=0&&(t.hp-v)/t.mhp<.3&&G.b.some(b=>b.f===t.f&&!b.dead&&b.type==='aegis')){F.inv=10;F.aegisCd=90;toastAll(t.f,'永恒壁垒启动：主城无敌 10 秒');return}}
  if(!t.isB&&U[t.kind].armor)v*=1-U[t.kind].armor;
  if(!t.isB&&t.f===0&&G.F[0].tech.vest)v*=.85;
@@ -638,16 +654,17 @@ function simStep(dt){
   F.doomBuff=F.f===1&&G.b.some(b=>b.f===1&&!b.dead&&(b.type==='doom'||b.as==='doom'));
   F.inv=Math.max(0,F.inv-dt);F.aegisCd=Math.max(0,F.aegisCd-dt);tickResearch(F,dt);if(F.f===0&&F.tech.kit)for(const u of G.u)if(!u.dead&&u.f===0&&!U[u.kind].hero)u.hp=Math.min(u.mhp,u.hp+1.5*dt);
   F.spawnT-=dt;
-  if(F.spawnT<=0){F.spawnT=SPAWN[F.lvl]*(F.f?1.25:1);if(cntU(F.f)<45){const e=G.F[1-F.f].main,m=F.main,a=Math.atan2(e.cy-m.cy,e.cx-m.cx);const n=F.f===0&&G.stage>=2?2:1;for(let i=0;i<n;i++)addUO(F.f,F.f?zType():'militia',m.cx+Math.cos(a)*1.1,m.cy+Math.sin(a)*1.1,nextOwn(F.f))}}
+  if(F.spawnT<=0){F.spawnT=SPAWN[F.lvl]*(F.f?1.25:1)*(aiF(F.f)?DF().sp:1);if(cntU(F.f)<ucap(F.f)){const e=G.F[1-F.f].main,m=F.main,a=Math.atan2(e.cy-m.cy,e.cx-m.cx);const n=F.f===0&&G.stage>=2?2:1;for(let i=0;i<n;i++)addUO(F.f,F.f?zType():'militia',m.cx+Math.cos(a)*1.1,m.cy+Math.sin(a)*1.1,nextOwn(F.f))}}
   if(F.f===1&&G.stage>=1){F.eliteT-=dt;if(F.eliteT<=0){F.eliteT=70;const m=F.main;F.eliteN++;
    if(F.eliteN%2){addU(1,'screamer',m.cx-1,m.cy-1);if(pf===0)toast('<b style="color:#c070ff">尖啸者</b>出现了')}
    else{for(let i=0;i<3;i++)addU(1,'hound',m.cx-1,m.cy-1);if(pf===0)toast('<b style="color:#e0524f">变异尸犬</b>群出动了')}}}
   if(F.f===0&&G.stage>=1){F.eliteT-=dt;if(F.eliteT<=0){F.eliteT=70;const m=F.main;const sq=G.stage>=2?['mech','sniper','heavy']:['heavy','sniper'];{const ow=nextOwn(0);for(const k of sq)addUO(0,k,m.cx+1,m.cy+1,ow)}if(pf===0)toast('<b style="color:#4fd1c5">援军抵达</b> · '+sq.map(k=>U[k].n).join('、'));else toast('<b style="color:var(--foe)">人类援军</b>抵达')}}
   for(let s_=0;s_<G.nP;s_++){if(!heroOf(F.f,s_)){F.heroT[s_]-=dt;if(F.heroT[s_]<=0)spawnHero(F.f,s_)}F.recall[s_]=Math.max(0,F.recall[s_]-dt)}
-  if(G.doom)damage(F.main,F.main.mhp*.004*dt,null);
+  if(G.doom)damage(F.main,F.main.mhp*.004*dt,'doom');
   if(G.over)return;
  }
  for(const n of G.nodes.slice())tickNode(n,dt);
+ tickCounter(dt);
  tickRespawn(dt);
  if(G.t>=G.nextDay&&G.t<G.dur-1){G.nextDay+=G.day;G.dayN++;dayEvent()}
  for(const s_ in G.picks){const P=G.picks[s_];if(P.kind==='day'&&G.t>=P.T)applyPick(+s_,P.o[0])}
@@ -660,13 +677,28 @@ function simStep(dt){
  for(const f of G.fx)f.t-=dt;G.fx=G.fx.filter(f=>f.t>0);
  G.fogT-=dt;if(G.fogT<=0){G.fogT=.25;fog()}
  G.aiT-=dt;if(G.aiT<=0){G.aiT=1.5;ai(1-pf);for(let s_=1;s_<G.nP;s_++)if(!slotHuman(s_)){const h=heroOf(pf,s_);if(h)aiHero(pf,h)}}
- if(G.t>=G.dur&&!G.over){const a=G.F[0].main,b=G.F[1].main;endGame(a.hp/a.mhp>=b.hp/b.mhp?0:1,'time')}
+ if(G.t>=G.dur&&!G.over){const a=G.F[0].main,b=G.F[1].main;endGame(Math.abs(a.hp/a.mhp-b.hp/b.mhp)>.01?(a.hp/a.mhp>b.hp/b.mhp?0:1):((G.F[0].kills||0)>=(G.F[1].kills||0)?0:1),'time')}
 }
 function freeSpot(m){for(let i=0;i<400;i++){const x=1+Math.floor(Math.random()*(N-2)),y=1+Math.floor(Math.random()*(N-2));
  if(G.occ[y][x]||G.ter[y][x]===2||ruinAt(x,y))continue;if(G.ruins.some(r=>!r.looted&&Math.abs(r.x-x)<m&&Math.abs(r.y-y)<m))continue;
  if(G.nodes.some(r=>Math.abs(r.x-x)<2&&Math.abs(r.y-y)<2))continue;
  if(G.b.some(b=>!b.dead&&b.f<2&&dd(x,y,b.x,b.y)<3))continue;if(G.u.some(u=>!u.dead&&dd(x+.5,y+.5,u.x,u.y)<1.2))continue;
  if(dd(x,y,3,3)<6||dd(x,y,N-4,N-4)<6)continue;return[x,y]}return null}
+function armyHP(f){let s=0;for(const u of G.u)if(!u.dead&&u.f===f&&!U[u.kind].hero)s+=u.hp;return s}
+function tickCounter(dt){
+ const ai=1-pf,me=pf,D=DF();
+ if(!G.upkNote&&cntU(0)>UPK&&pf===0){G.upkNote=1;toast(`兵超过 ${UPK} 个开始有<b style="color:#f2a24e">维护费</b>：每多 1 个兵，物资收入 -0.06/秒`)}
+ if(!D.ctr)return;G.ctrT=(G.ctrT||25)-dt;if(G.ctrT>0)return;G.ctrT=22;
+ const P=armyHP(me),A=armyHP(ai);if(P<1500||P<A*1.35)return;
+ const F=G.F[ai],m=F.main,e=G.F[me].main;if(!m||m.dead)return;
+ const n=Math.min(Math.round(4*D.ctr),Math.max(2,Math.ceil((P-A)/700*D.ctr)));
+ const pool=ai===1?(G.stage>=2?['bomber','spitter','brute','butcher','spider']:G.stage>=1?['bomber','spitter','brute','runner']:['spitter','runner','zombie']):(G.stage>=2?['mortar','heavy','sniper','mech']:G.stage>=1?['heavy','sniper','musket']:['musket','militia']);
+ const a=Math.atan2(e.cy-m.cy,e.cx-m.cx);
+ for(let i=0;i<n;i++){const k=pool[i%pool.length];if(!U[k])continue;addU(ai,k,m.cx+Math.cos(a)*1.2+rnd(-.4,.4),m.cy+Math.sin(a)*1.2+rnd(-.4,.4))}
+ if(ai===1&&G.stage>=2&&!G.u.some(u=>!u.dead&&u.f===1&&u.kind==='abom')&&Math.random()<.35*D.ctr)addU(1,'abom',m.cx-1,m.cy-1);
+ fx({k:'birth',x:m.cx,y:m.cy,t:.8,m:.8});
+ toast(ai===1?`<b style="color:#e0524f">尸潮察觉到你的大军</b> · 派出 ${n} 只增援`:`<b style="color:#e0524f">人类察觉到你的尸群</b> · 派出 ${n} 名援军`);
+}
 function tickRespawn(dt){
  const sc=Math.max(.5,G.dur/1200);
  G.ruinT-=dt;if(G.ruinT<=0){G.ruinT=rnd(60,90)*sc;
@@ -695,7 +727,7 @@ function canTrain(f,k,b){const T=TRAIN[k],F=G.F[f];if(!T)return'不能造';if(T.
 function payTrain(f,k){const T=TRAIN[k],F=G.F[f];for(const m in T.cost)F[m]-=T.cost[m]}
 function tickTrain(b,dt){
  b.q=b.q||[];
- if(!b.q.length&&b.auto&&!G.F[b.f].saving&&!canTrain(b.f,b.auto,b)&&cntU(b.f)<55){payTrain(b.f,b.auto);b.q.push(b.auto);b.qt=0}
+ if(!b.q.length&&b.auto&&!G.F[b.f].saving&&!canTrain(b.f,b.auto,b)&&cntU(b.f)<ucap(b.f)){payTrain(b.f,b.auto);b.q.push(b.auto);b.qt=0}
  if(!b.q.length)return;
  b.qt=(b.qt||0)+dt;const k=b.q[0];
  if(b.qt>=TRAIN[k].t){b.qt=0;b.q.shift();const u=addUO(b.f,k,b.cx+rnd(-.3,.3),b.cy+.75,b.own);fx({k:'ring',x:u.x,y:u.y,c:'#4fd1c5',t:.5,m:.5,max:.8})}
@@ -731,10 +763,10 @@ function tickB(b,dt){
   for(const u of G.u)if(!u.dead&&u.f===b.f&&u.hp<u.mhp&&dd(u.x,u.y,b.cx,b.cy)<2.2){u.hp=Math.min(u.mhp,u.hp+6*dt);any=true;if(pulse)fx({k:'spark',x:u.x,y:u.y,z:.5,c:'#7dff9a',t:.35,m:.35,s:.45})}
   if(pulse&&any)fx({k:'ring',x:b.cx,y:b.cy,c:'#5cc98a',t:.8,m:.8,max:2.2})}
  const every=(s,fn)=>{b.tm=(b.tm||0)+dt;if(b.tm>=s){b.tm=0;fn()}};
- if(k==='portal')every(15,()=>cntU(b.f)<55&&addUO(b.f,b.f?zType():'militia',b.cx,b.cy,b.own));
+ if(k==='portal')every(15,()=>cntU(b.f)<ucap(b.f)&&addUO(b.f,b.f?zType():'militia',b.cx,b.cy,b.own));
  if(k==='awaken')every(25,()=>addUO(b.f,pick(['fire','psy','heal']),b.cx,b.cy,b.own));
  if(k==='sanctum')every(20,()=>addUO(b.f,'master',b.cx,b.cy,b.own));
- if(d.spawn)every(d.every,()=>{if(cntU(b.f)>=45&&!U[d.spawn].big)return;for(let i=0;i<d.cnt;i++)addUO(b.f,d.spawn,b.cx+rnd(-.3,.3),b.cy+.7,b.own);fx({k:'birth',x:b.cx,y:b.cy,t:.6,m:.6});if(U[d.spawn].big&&b.f!==pf)toast(`<b style="color:#e0524f">${U[d.spawn].n}</b>出现了`)});
+ if(d.spawn)every(d.every*(aiF(b.f)?DF().sp:1),()=>{if(cntU(b.f)>=ucap(b.f)&&!U[d.spawn].big)return;for(let i=0;i<d.cnt;i++)addUO(b.f,d.spawn,b.cx+rnd(-.3,.3),b.cy+.7,b.own);fx({k:'birth',x:b.cx,y:b.cy,t:.6,m:.6});if(U[d.spawn].big&&b.f!==pf)toast(`<b style="color:#e0524f">${U[d.spawn].n}</b>出现了`)});
  if(k==='skythunder')every(5,()=>{let best=null,bn=0;for(const u of G.u){if(u.dead||u.f===b.f||dd(u.x,u.y,b.cx,b.cy)>9)continue;let n=0;for(const o of G.u)if(!o.dead&&o.f===u.f&&dd(o.x,o.y,u.x,u.y)<1.5)n++;if(n>bn){bn=n;best=u}}
   if(best){const x=best.x,y=best.y;fx({k:'bolt',x,y,t:.5,m:.5});fx({k:'boom',x,y,t:.5,m:.5,r:1.6});for(const o of G.u)if(!o.dead&&o.f!==b.f&&dd(o.x,o.y,x,y)<1.5)damage(o,70,b)}});
  if(b.type==='mirror'&&!b.as){b.mt=(b.mt||0)+dt;if(b.mt>3){b.mt=0;mirrorPick(b)}}
@@ -1625,6 +1657,8 @@ $('zIn').onclick=()=>camS.dist=Math.max(3.5,camS.dist/1.2);$('zOut').onclick=()=
 $('fHome').onclick=()=>{if(!G)return;setMode('follow');camS.yaw=pf?Math.PI/4:-Math.PI*3/4};
 
 document.querySelectorAll('.fac').forEach(b=>b.onclick=()=>{if(NET.mode==='client')return;document.querySelectorAll('.fac').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');pf=+b.dataset.f;if(NET.mode==='host'&&NET.room)NET.room.presence({host:NET.code,fac:pf,open:1}).catch(()=>{})});
+let diff=1;try{const v=+localStorage.getItem('mlc-diff');if(v>=0&&v<=3)diff=v}catch(e){}
+document.querySelectorAll('#diffSeg button').forEach(b=>{b.classList.toggle('sel',+b.dataset.v===diff);b.onclick=()=>{document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');diff=+b.dataset.v;try{localStorage.setItem('mlc-diff',diff)}catch(e){}}});
 document.querySelectorAll('#durSeg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#durSeg button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');dur=+b.dataset.d});
 function clearScene(){for(const [,e] of ENT)scene.remove(e.m);ENT.clear()}
 function setColors(){document.documentElement.style.setProperty('--me',`var(--${pf?'zombie':'human'})`);document.documentElement.style.setProperty('--foe',`var(--${pf?'human':'zombie'})`)}
