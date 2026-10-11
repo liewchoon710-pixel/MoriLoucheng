@@ -293,9 +293,10 @@ button:focus-visible{outline:2px solid var(--me);outline-offset:2px}
     </div>
     <div id="mpBox" class="mpbox" hidden></div>
     <div id="netStat" class="netstat">联机：检查中…</div>
-    <div class="netstat">游戏版本 v11</div>
+    <div class="netstat">游戏版本 v12</div>
     <ul class="rules">
       <li><b>操作：</b>左下摇杆走路，拖屏幕转镜头，英雄自动攻击。点地面也能让英雄走过去。</li>
+      <li><b>造兵：</b>点一下射击场、盾卫营、医院、工坊就能选兵种训练；点兵营可以合成强兵和研究科技（建筑上方会有「点我」提示）。</li>
       <li><b>指挥：</b>按「指挥」打开 2D 地图，拖框选兵、点地图下命令、编入 1/2/3 队。</li>
       <li><b>资源地：</b>废铁场、晶核矿、辐射坑。派兵站上去占领，自动采集。晶核和异变素可以建稀有建筑、合成强力兵。</li>
       <li><b>建筑之心：</b>开局先选一座攻击建筑。防御塔、墙、兵营可以放在地图任何地方；放在主城范围内血量 +30%。</li>
@@ -336,7 +337,7 @@ const H={
  shieldH:{f:0,r:0,n:'盾卫之心',b:'盾卫营',hp:560,train:['shield','heavy'],d:'训练盾卫和重装兵',any:1},
  hospital:{f:0,r:1,n:'野战医院之心',b:'野战医院',hp:480,train:['medic'],d:'训练医疗兵；3 格内的我方兵每秒回 4 血',any:1},
  workshop:{f:0,r:2,n:'机械工坊之心',b:'机械工坊',hp:620,train:['mortar','mech'],d:'制造迫击炮车；第二次进化后可制造机甲',any:1},
- regen:{f:0,r:1,n:'再生之心',b:'再生之树',hp:420,d:'自己和相邻建筑每秒回 10 血；被摧毁后 30 秒原地重生一次'},
+ regen:{f:0,r:1,n:'再生之心',b:'再生之树',hp:420,d:'2 格内我方士兵和英雄每秒回 6 血；自己和相邻建筑每秒回 10 血；被摧毁后 30 秒原地重生一次'},
  farm:{f:0,r:1,n:'丰饶之心',b:'种植园',hp:300,d:'每秒 +1.5 物资'},
  purify:{f:0,r:1,n:'净化之心',b:'净化塔',hp:360,aura:{rg:3,dps:7,slow:1},cc:'#7fe0a0',d:'3 格内敌人减速 40% 并持续掉血',any:1},
  thunder:{f:0,r:2,n:'雷霆之心',b:'电磁塔',hp:420,atk:{rg:4.5,dm:24,cd:1.6,chain:3},cc:'#9fd6ff',d:'连锁闪电，一次打 3 个',any:1},
@@ -487,8 +488,8 @@ const myHero=()=>heroOf(pf,mySlot);
 const pos=t=>t.isB?[t.cx,t.cy]:[t.x,t.y];
 
 // ================= rules =================
-function cap(F){let c=F.f===1?400:300;for(const b of G.b)if(b.f===F.f&&!b.dead){if(b.type==='store')c+=150;if(b.type==='flesh')c+=100}return c}
-function rate(F){let r=F.f===1?2.5:2;for(const b of G.b)if(b.f===F.f&&!b.dead){if(b.type==='farm'||b.type==='flesh')r+=1.5;if(b.type==='store')r+=.5}return r}
+function cap(F){let c=F.f===1?400:300;for(const b of G.b)if(b.f===F.f&&!b.dead){const t=b.as||b.type;if(t==='store')c+=150;if(t==='flesh')c+=100}return c}
+function rate(F){let r=F.f===1?2.5:2;for(const b of G.b)if(b.f===F.f&&!b.dead){const t=b.as||b.type;if(t==='farm'||t==='flesh')r+=1.5;if(t==='store')r+=.5}return r}
 function gain(F,v){F.res=Math.min(cap(F),F.res+v)}
 function canBuild(f,x,y,key){
  if(x<0||y<0||x>=N||y>=N||G.occ[y][x]||ruinAt(x,y))return false;
@@ -513,8 +514,9 @@ function build(f,key,x,y,useRare,slot=0){
  fx({k:'ring',x:b.cx,y:b.cy,c:HC(b.type),t:.7,m:.7,max:1.4});
  return b;
 }
+function clickHint(t){const d=H[t];if(!d)return'';if(d.train)return'就能选兵种训练';if(t==='barracks')return'就能合成强兵、研究科技';if(t==='pool')return'就能合成变异种';return''}
 function mirrorPick(b){
- let best=null;for(const o of G.b)if(o!==b&&!o.dead&&o.f===b.f&&H[o.type]&&o.type!=='mirror'&&!H[o.type].rare&&!H[o.type].train&&dd(o.cx,o.cy,b.cx,b.cy)<1.6){if(!best||H[o.type].r>H[best.type].r)best=o}
+ let best=null;for(const o of G.b)if(o!==b&&!o.dead&&o.f===b.f&&H[o.type]&&o.type!=='mirror'&&o.type!=='barracks'&&o.type!=='pool'&&!H[o.type].rare&&!H[o.type].train&&dd(o.cx,o.cy,b.cx,b.cy)<1.6){if(!best||H[o.type].r>H[best.type].r)best=o}
  b.as=best?best.type:null;
 }
 function rollHeart(f,w){const r=wpick(w);const ks=keysOf(f,r);return ks.length?pick(ks):pick(keysOf(f,0))}
@@ -527,7 +529,7 @@ function exchange(f,a,b){
  const k=pick(keysOf(f,r));F.hearts.push(k);return k;
 }
 function upgrade(f){const F=G.F[f];if(F.lvl>=3||F.res<UPC[F.lvl])return false;F.res-=UPC[F.lvl];F.lvl++;F.main.mhp+=2000;F.main.hp+=2000;fx({k:'ring',x:F.main.cx,y:F.main.cy,c:FN[f].col,t:.8,m:.8,max:2.4});return true}
-function eternalAlive(f){return G.b.some(b=>b.f===f&&!b.dead&&(b.type==='eternal'||b.type==='aegis'))}
+function eternalAlive(f){return G.b.some(b=>b.f===f&&!b.dead&&(b.type==='eternal'||b.type==='aegis'||b.as==='eternal'))}
 const isWall=b=>b.type==='stone'||b.type==='bone';
 const crafter=f=>G.b.find(b=>b.f===f&&!b.dead&&(b.type==='barracks'||b.type==='pool'));
 function recipeUse(f,r,own){
@@ -560,7 +562,7 @@ function craft(f,i,own){
 function damage(t,v,src){
  if(t.dead)return;
  if(t.isB&&t.type==='main'&&t.f<2){const F=G.F[t.f];if(F.inv>0)return;if(t.f===0)v*=.85;if(eternalAlive(t.f))v*=.75;
-  if(F.aegisCd<=0&&t.hp/t.mhp<.3&&G.b.some(b=>b.f===t.f&&!b.dead&&b.type==='aegis')){F.inv=10;F.aegisCd=90;toastAll(t.f,'永恒壁垒启动：主城无敌 10 秒');return}}
+  if(F.aegisCd<=0&&(t.hp-v)/t.mhp<.3&&G.b.some(b=>b.f===t.f&&!b.dead&&b.type==='aegis')){F.inv=10;F.aegisCd=90;toastAll(t.f,'永恒壁垒启动：主城无敌 10 秒');return}}
  if(!t.isB&&U[t.kind].armor)v*=1-U[t.kind].armor;
  if(!t.isB&&t.f===0&&G.F[0].tech.vest)v*=.85;
  t.hp-=v;
@@ -722,9 +724,12 @@ function tickB(b,dt){
  if(d.aura){for(const u of G.u)if(!u.dead&&u.f!==b.f&&dd(u.x,u.y,b.cx,b.cy)<=d.aura.rg){damage(u,d.aura.dps*dt,b);if(d.aura.slow)u.slow=.3}
   if(d.aura.bld)for(const o of G.b)if(!o.dead&&o.f!==b.f&&dd(o.cx,o.cy,b.cx,b.cy)<=d.aura.rg)damage(o,d.aura.dps*.5*dt,b);}
  if(k==='rage')for(const u of G.u)if(!u.dead&&u.f===b.f&&dd(u.x,u.y,b.cx,b.cy)<=5)u.rage=.3;
- if(k==='hospital')for(const u of G.u)if(!u.dead&&u.f===b.f&&dd(u.x,u.y,b.cx,b.cy)<3)u.hp=Math.min(u.mhp,u.hp+4*dt);
+ if(k==='hospital'){b.ht=(b.ht||0)+dt;const pulse=b.ht>=1.2;if(pulse)b.ht=0;for(const u of G.u)if(!u.dead&&u.f===b.f&&u.hp<u.mhp&&dd(u.x,u.y,b.cx,b.cy)<3){u.hp=Math.min(u.mhp,u.hp+4*dt);if(pulse)fx({k:'spark',x:u.x,y:u.y,z:.5,c:'#ff8a8a',t:.3,m:.3,s:.4})}}
  if(d.train)tickTrain(b,dt);
- if(k==='regen')for(const o of G.b)if(!o.dead&&o.f===b.f&&dd(o.cx,o.cy,b.cx,b.cy)<1.6)o.hp=Math.min(o.mhp,o.hp+10*dt);
+ if(k==='regen'){for(const o of G.b)if(!o.dead&&o.f===b.f&&dd(o.cx,o.cy,b.cx,b.cy)<1.6)o.hp=Math.min(o.mhp,o.hp+10*dt);
+  b.ht=(b.ht||0)+dt;const pulse=b.ht>=1;if(pulse)b.ht=0;let any=false;
+  for(const u of G.u)if(!u.dead&&u.f===b.f&&u.hp<u.mhp&&dd(u.x,u.y,b.cx,b.cy)<2.2){u.hp=Math.min(u.mhp,u.hp+6*dt);any=true;if(pulse)fx({k:'spark',x:u.x,y:u.y,z:.5,c:'#7dff9a',t:.35,m:.35,s:.45})}
+  if(pulse&&any)fx({k:'ring',x:b.cx,y:b.cy,c:'#5cc98a',t:.8,m:.8,max:2.2})}
  const every=(s,fn)=>{b.tm=(b.tm||0)+dt;if(b.tm>=s){b.tm=0;fn()}};
  if(k==='portal')every(15,()=>cntU(b.f)<55&&addUO(b.f,b.f?zType():'militia',b.cx,b.cy,b.own));
  if(k==='awaken')every(25,()=>addUO(b.f,pick(['fire','psy','heal']),b.cx,b.cy,b.own));
@@ -1360,6 +1365,9 @@ function drawOverlay(){
  oc.setTransform(dpr,0,0,dpr,0,0);oc.clearRect(0,0,VW,VH);
  const bar=(p,w,f,col)=>{oc.fillStyle='rgba(0,0,0,.65)';oc.fillRect(p[0]-w/2-1,p[1]-1,w+2,5);oc.fillStyle=f>.5?col:f>.25?'#f2a24e':'#e0524f';oc.fillRect(p[0]-w/2,p[1],w*Math.max(0,f),3)};
  for(const b of G.b){if(!(b.f===pf||known(b.x,b.y)))continue;const f=b.hp/b.mhp;if(f>.999&&b.type!=='main')continue;const p=proj(b.cx,b.cy,(b.top||1)+.75);if(p)bar(p,b.type==='main'?54:30,f,FN[b.f].col)}
+ {const T=performance.now()/1000;for(const b of G.b){if(b.dead||b.f!==pf||!clickHint(b.type))continue;const busy=(b.q&&b.q.length)||b.auto;if(dd(b.cx,b.cy,camS.tx,camS.ty)>8)continue;const p=proj(b.cx,b.cy,(b.top||1)+1.15+Math.sin(T*3)*.06);if(!p)continue;
+  const txt=busy?(b.auto?'⟳ 自动生产中':'⚙ 训练中'):(H[b.type].train?'👆 点我造兵':'👆 点我合成');oc.font='700 11px "Noto Sans SC",sans-serif';const w=oc.measureText(txt).width+12;
+  oc.fillStyle=busy?'rgba(20,40,38,.8)':'rgba(242,193,78,.92)';oc.beginPath();oc.roundRect?oc.roundRect(p[0]-w/2,p[1]-10,w,18,9):oc.rect(p[0]-w/2,p[1]-10,w,18);oc.fill();oc.fillStyle=busy?'#7ff0e4':'#1a1408';oc.textAlign='center';oc.fillText(txt,p[0],p[1]+3)}}
  for(const u of G.u){if(!(u.f===pf||seen(u.x,u.y)))continue;const d=U[u.kind];const f=u.hp/u.mhp;if(f>.999&&!d.hero)continue;
   const s=d.hero?1.25:d.big?1.9:1;const p=proj(u.x,u.y,.82*s);if(!p)continue;bar(p,d.hero||d.big?26:16,f,FN[u.f].col)}
  for(const u of G.u){if(u.f!==pf||U[u.kind].hero)continue;if(u.hold==='def'&&(u.own||0)===mySlot){const p=proj(u.x,u.y,1.05);if(p){oc.fillStyle='#9fd6ff';oc.font='700 9px "Noto Sans SC",sans-serif';oc.textAlign='center';oc.fillText('守',p[0]+8,p[1])}}for(const q of [1,2,3])if(ui.squad[q].has(u.id)){const p=proj(u.x,u.y,.95);if(p){oc.fillStyle=FN[pf].col;oc.font='700 10px "Chakra Petch",sans-serif';oc.textAlign='center';oc.fillText(q,p[0],p[1])}break}}
@@ -1672,7 +1680,7 @@ function apply(s_,a,p){
  case 'cmd':case 'form':{if(!p)break;const us=(p.ids||[]).slice(0,90).map(id=>G.u.find(u=>u.id===id&&!u.dead&&u.f===pf)).filter(u=>u&&(U[u.kind].hero?u.slot===s_:(u.own||0)===s_));if(!us.length)break;const fm=p.fm&&typeof p.fm.t==='string'?{t:p.fm.t,c:Array.isArray(p.fm.c)?p.fm.c.slice(0,49).map(v=>v|0):null}:null;
   if(a==='form'){const sol=us.filter(u=>!U[u.kind].hero);const cx=sol.reduce((q,u)=>q+u.x,0)/(sol.length||1),cy=sol.reduce((q,u)=>q+u.y,0)/(sol.length||1);let dir=null;if(sol.length){const a_=sol[0].ang||0;dir=[Math.sin(a_),Math.cos(a_)]}const e=G.F[1-pf].main;dir=[e.cx-cx,e.cy-cy];command(sol,cx,cy,null,fm,p.hm,dir);noteSlot(s_,p.hm==='def'?`${sol.length} 个兵原地防御`:`${sol.length} 个兵原地进攻`);break}
   const t=p.tid?findEnt(p.tid):null;command(us,clamp(+p.x||0,0,N),clamp(+p.y||0,0,N),t&&t.f!==pf?t:null,fm,p.hm);break}
- case 'build':{if(!p||!H[p.k])break;const b=build(pf,p.k,p.x|0,p.y|0,!!p.r,s_);noteSlot(s_,b?`${H[b.type].b} 建成`:'建不了：资源不够或位置被占');break}
+ case 'build':{if(!p||!H[p.k])break;const b=build(pf,p.k,p.x|0,p.y|0,!!p.r,s_);noteSlot(s_,b?`${H[b.type].b} 建成`+(clickHint(b.type)?` · <b style="color:#f2c14e">点一下它${clickHint(b.type)}</b>`:''):'建不了：资源不够或位置被占');break}
  case 'swap':{if(!p)break;const i=F.hearts.indexOf(p.ka);let j=F.hearts.indexOf(p.kb);if(j===i)j=F.hearts.indexOf(p.kb,i+1);if(i<0||j<0)break;const k=exchange(pf,i,j);if(k){if(s_===mySlot){ui.lootQ.push({k,src:'心之兑换'});renderLoot()}else sendEv(s_,{t:'loot',k,src:'心之兑换'})}break}
  case 'up':if(upgrade(pf))toastTeam(`${FN[pf].main}升到 Lv${F.lvl}：出兵更快，建造范围更大`);break;
  case 'stance':{const ns=F.stanceS[s_]==='atk'?'def':'atk';F.stanceS[s_]=ns;let n=0;for(const u of G.u)if(u.f===pf&&!U[u.kind].hero&&(u.own||0)===s_&&(u.cmd||u.cmdT)){u.cmd=null;u.cmdT=null;u.hold=null;n++}noteSlot(s_,(ns==='atk'?'你的兵全军进攻！':'你的兵全军回防')+(n?` · ${n} 个兵取消命令`:''));break}
@@ -1807,8 +1815,8 @@ function peerChannel(isHost,code){
 function peerErrMsg(e){const t=e&&e.type;return t==='peer-unavailable'?'找不到这个房间：主机可能已经关掉页面，或者房间已经开局。':t==='unavailable-id'?'房间号重复了，请再试一次。':t==='timeout'?'连接超时：可能是网络挡住了点对点连接（公司 WiFi 常见），换手机数据或家里 WiFi 试试。':t==='browser-incompatible'?'这个浏览器不支持联机，请用 Chrome / Safari 最新版。':(e&&e.message)||'联机失败，请再试一次。'}
 // ---- lobby ----
 function wantRoom(){try{const m=(location.hash+'&'+location.search).match(/room=([a-z0-9]{3,8})/);return m?m[1]:null}catch(e){return null}}
-const GAME_URL='https://claude.ai/artifact/Ju3jetKsNFz1XFN3vp56Rd';
-function copyInvite(){const url=PEER_MODE?location.origin+location.pathname+'?room='+NET.code:GAME_URL+'#room='+NET.code;const done=()=>showToast('邀请链接已复制，发给朋友就行');
+const GAME_URL='https://claude.ai/artifact/Ju3jetKsNFz1XFN3vp56Rd',PEER_URL='https://liewchoon710-pixel.github.io/MoriLoucheng/';
+function copyInvite(){const url=NET.tr==='room'?GAME_URL+'#room='+NET.code:PEER_URL+'?room='+NET.code;const done=()=>showToast('邀请链接已复制，发给朋友就行');
  const fb=()=>{const t=document.createElement('textarea');t.value=url;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}t.remove();if(ok)done();else prompt('复制这个链接发给朋友：',url)};
  try{navigator.clipboard.writeText(url).then(done,fb)}catch(e){fb()}}
 async function ensureRoom(){
@@ -1824,7 +1832,9 @@ let lobbySig='';
 function setBox(h){const box=$('mpBox');if(lobbySig===h)return false;lobbySig=h;box.innerHTML=h;return true}
 function netStat(){const el=$('netStat');if(!el)return;let t,bad=false;
  if(NET.room===null)t='联机：正在连接…';
- else if(PEER_MODE)t=NET.mode==='host'?'联机：<b>点对点 · 你是房主</b>':NET.mode==='client'?'联机：<b>点对点 · 已加入房间 '+NET.code+'</b>':'联机：<b>点对点模式</b> · 不用账号，朋友点邀请链接就能进';
+ else if(NET.mode!=='solo'&&NET.tr==='peer')t=NET.mode==='host'?'联机：<b>点对点 · 你是房主</b>':'联机：<b>点对点 · 已加入房间 '+NET.code+'</b>';
+ else if(PEER_MODE||NET.room===false)t='联机：<b>点对点模式</b> · 不用账号，朋友点邀请链接就能进';
+ else if(false)t=NET.mode==='host'?'联机：<b>点对点 · 你是房主</b>':NET.mode==='client'?'联机：<b>点对点 · 已加入房间 '+NET.code+'</b>':'联机：<b>点对点模式</b> · 不用账号，朋友点邀请链接就能进';
  else if(NET.room===false){bad=true;t=NET.roomWhy||'联机：<b>连不上</b>（没登入 claude.ai，或没被邀请为参与者）。单人照样能玩。'}
  else if(NET.mode==='host')t='联机：<b>已连接</b> · 你是房主';
  else if(NET.mode==='client')t='联机：<b>已连接</b> · 已加入房间 '+NET.code;
@@ -1836,15 +1846,15 @@ function renderLobby(){
  box.hidden=sizeN!==2;
  if(sizeN!==2){go.disabled=false;go.textContent='开始对局';return}
  if(NET.room===null){setBox('<span class="warn">正在连接联机房间…</span>');go.disabled=true;go.textContent='开始对局';return}
- if(PEER_MODE&&NET.mode==='solo'){
+ if((PEER_MODE||NET.room===false)&&NET.mode==='solo'){
   if(setBox(`<button class="pri" id="mpCreate">创建房间（我当主机）</button><span class="warn">${NET.joinMsg||'创建后点「复制邀请链接」发给朋友，朋友点开就自动加入。'}</span><div class="who"><input id="mpCode" maxlength="6" placeholder="或输入房间号" style="flex:1;min-width:0;background:transparent;border:1px solid var(--line);border-radius:8px;color:inherit;padding:8px;font:inherit"><button id="mpJoin">加入</button></div>`)){$('mpCreate').onclick=hostCreate;$('mpJoin').onclick=()=>{const c=($('mpCode').value||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(c)clientJoin(c)}}
   go.disabled=true;go.textContent='先创建或加入房间';return}
  if(NET.room===false&&!PEER_MODE){setBox('<span class="warn">这里连不上联机房间。原因通常是：① 没有登入 claude.ai；② 用公开链接打开、但没有被主机邀请。请主机在页面右上角「分享」里输入朋友的 claude.ai 邮箱邀请他，权限选「参与者」以上，朋友登入后再打开。</span>');go.disabled=true;return}
  if(NET.mode==='host'){const n=Object.keys(NET.slots).length;
-  if(setBox(`<div>房间号</div><div class="code">${NET.code}</div><div class="who"><span>你 · 主机</span><span>${n?'队友已加入':'等队友加入…'}</span></div><button class="pri" id="mpInvite">复制邀请链接</button><span class="warn">${PEER_MODE?'朋友点开链接就会自动进你的房间（不用账号）。房间号：'+NET.code+'。':'朋友点开链接就会自动进你的房间（他要登入 claude.ai，并且你已在「分享」里邀请他为参与者）。'}没有队友也可以直接开始，空位的英雄由电脑控制。</span><button id="mpLeave">取消房间</button>`)){$('mpInvite').onclick=copyInvite;$('mpLeave').onclick=()=>{leaveGame();renderLobby()};}go.disabled=false;go.textContent=n?'开始对局（2 人）':'开始对局（只有你）';return}
+  if(setBox(`<div>房间号</div><div class="code">${NET.code}</div><div class="who"><span>你 · 主机</span><span>${n?'队友已加入':'等队友加入…'}</span></div><button class="pri" id="mpInvite">复制邀请链接</button><span class="warn">${NET.tr==='peer'?'朋友用手机或电脑点开链接就会自动进你的房间（不用账号）。房间号：'+NET.code+'。':'朋友点开链接就会自动进你的房间（他要登入 claude.ai，并且你已在「分享」里邀请他为参与者）。'}没有队友也可以直接开始，空位的英雄由电脑控制。</span><button id="mpLeave">取消房间</button>`)){$('mpInvite').onclick=copyInvite;$('mpLeave').onclick=()=>{leaveGame();renderLobby()};}go.disabled=false;go.textContent=n?'开始对局（2 人）':'开始对局（只有你）';return}
  if(NET.mode==='client'){if(setBox(`<div>已加入房间 <b class="code" style="font-size:18px">${NET.code}</b></div><span class="warn">${NET.joinMsg||'等主机开始对局…'}</span><button id="mpLeave">离开房间</button>`))$('mpLeave').onclick=()=>{leaveGame();renderLobby()};go.disabled=true;go.textContent='等主机开始';return}
  const list=lobbyPeers.map(p=>`<button data-code="${String(p.presence.host).replace(/[^a-z0-9]/g,'')}">加入房间 ${String(p.presence.host).replace(/[^a-z0-9]/g,'')} · ${FN[p.presence.fac===1?1:0].n}${p.guest?' · 访客':''}</button>`).join('');
- if(setBox(`<button class="pri" id="mpCreate">创建房间（我当主机）</button><div class="rooms">${list||'<span class="warn">现在没有朋友开的房间。你可以创建一个，让朋友来加入。</span>'}</div>`)){$('mpCreate').onclick=hostCreate;box.querySelectorAll('[data-code]').forEach(b=>b.onclick=()=>clientJoin(b.dataset.code))}
+ if(setBox(`<button class="pri" id="mpCreate">创建房间（我当主机）</button>${NET.joinMsg?`<span class="warn">${NET.joinMsg}</span>`:''}<div class="rooms">${list||'<span class="warn">创建后点「复制邀请链接」发给朋友，朋友用手机点开就能进（不用账号）。</span>'}</div><div class="who"><input id="mpCode" maxlength="6" placeholder="或输入房间号" style="flex:1;min-width:0;background:transparent;border:1px solid var(--line);border-radius:8px;color:inherit;padding:8px;font:inherit"><button id="mpJoin">加入</button></div>`)){$('mpCreate').onclick=hostCreate;$('mpJoin').onclick=()=>{const c=($('mpCode').value||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(c)clientJoin(c)};box.querySelectorAll('[data-code]').forEach(b=>b.onclick=()=>clientJoin(b.dataset.code))}
  go.disabled=true;go.textContent='先创建或加入房间';
 }
 function wireGame(g){
@@ -1867,18 +1877,24 @@ function wireGame(g){
   if(NET.mode==='client'&&p.peer===NET.hostPeer){showToast('主机离开了，这局结束');if(G&&!G.over){G.over=true;setTimeout(()=>{$('again').onclick()},1500)}else{leaveGame();renderLobby()}}}},()=>{});
 }
 async function hostCreate(){
- const r=await ensureRoom();if(!r&&!PEER_MODE)return renderLobby();
+ const r=await ensureRoom();
  const code=Math.random().toString(36).slice(2,6).replace(/[^a-z0-9]/g,'x');
- if(PEER_MODE){NET.joinMsg='正在建房…';lobbySig='';renderLobby();try{NET.game=await peerChannel(true,code)}catch(e){NET.joinMsg=peerErrMsg(e);lobbySig='';renderLobby();return}NET.joinMsg=''}
- else try{NET.game=await r.join('mlc-'+code)}catch(e){showToast('建房失败，请再试一次');return}
+ NET.joinMsg='正在建房…';lobbySig='';renderLobby();
+ try{NET.game=await peerChannel(true,code);NET.tr='peer'}catch(e){
+  if(r){try{NET.game=await r.join('mlc-'+code);NET.tr='room';showToast('点对点被这里的网络挡住了，改用 claude 房间（只有受邀的人能进）')}catch(e2){NET.joinMsg='建房失败，请再试一次';lobbySig='';renderLobby();return}}
+  else{NET.joinMsg=peerErrMsg(e);lobbySig='';renderLobby();return}}
+ NET.joinMsg='';
  NET.mode='host';NET.code=code;NET.slots={};NET.started=false;wireGame(NET.game);
  NET.game.emit('hello',{}).catch(()=>{});
  if(r)r.presence({host:code,fac:pf,open:1}).catch(()=>{});renderLobby();
 }
 async function clientJoin(code){
- const r=await ensureRoom();if(!r&&!PEER_MODE)return renderLobby();
- if(PEER_MODE){if(sizeN!==2){const b2=document.querySelector('#sizeSeg button[data-n="2"]');if(b2)b2.click()}NET.joinMsg='正在连接房间 '+code+'…';lobbySig='';renderLobby();try{NET.game=await peerChannel(false,code)}catch(e){NET.joinMsg=peerErrMsg(e);lobbySig='';renderLobby();return}}
- else try{NET.game=await r.join('mlc-'+code)}catch(e){showToast('加入失败，请再试一次');return}
+ const r=await ensureRoom();
+ if(sizeN!==2){const b2=document.querySelector('#sizeSeg button[data-n="2"]');if(b2)b2.click()}NET.joinMsg='正在连接房间 '+code+'…';lobbySig='';renderLobby();
+ try{NET.game=await peerChannel(false,code);NET.tr='peer'}catch(e){
+  if(r&&e&&e.type!=='peer-unavailable'){try{NET.game=await r.join('mlc-'+code);NET.tr='room'}catch(e2){NET.joinMsg='加入失败，请再试一次';lobbySig='';renderLobby();return}}
+  else if(r&&lobbyPeers.some(p=>String(p.presence.host)===code)){try{NET.game=await r.join('mlc-'+code);NET.tr='room'}catch(e2){NET.joinMsg=peerErrMsg(e);lobbySig='';renderLobby();return}}
+  else{NET.joinMsg=peerErrMsg(e);lobbySig='';renderLobby();return}}
  NET.mode='client';NET.code=code;NET.joinMsg='正在联系主机…';initBuf={};wireGame(NET.game);renderLobby();
  let tries=0;const g0=NET.game;const hi=()=>{if(NET.mode!=='client'||NET.game!==g0||NET.hostPeer)return;
   if(tries++>8){NET.joinMsg='联系不上主机。请主机确认游戏页面还开着（没切走、没锁屏），然后点「离开房间」再加入一次。';lobbySig='';renderLobby();return}
@@ -1911,8 +1927,8 @@ function loop(now){
  requestAnimationFrame(loop);
 }
 addEventListener('resize',resize);resize();requestAnimationFrame(loop);
-setTimeout(()=>{ensureRoom().catch(()=>{NET.room=false}).then(()=>{renderLobby();if(PEER_MODE){const w=wantRoom();if(w&&NET.mode==='solo'&&!G)clientJoin(w)}})},400);
-window.__mlc={aiHero,heroOf,act,sim:(n,dt=.05)=>{for(let i=0;i<n&&G&&!G.over;i++)sim(dt)},get G(){return G},begin,ai,command,ui,camS,openCmd,setMode,craft,renderHUD,giveHeart,frame:()=>frame(performance.now(),.016),pickOpen:i=>{$('pick').querySelectorAll('.card')[i].click()}};
+setTimeout(()=>{ensureRoom().catch(()=>{NET.room=false}).then(()=>{renderLobby();{const w=wantRoom();if(w&&NET.mode==='solo'&&!G)clientJoin(w)}})},400);
+window.__mlc={dbg:{addB,addU,addUO,damage,cap,rate,build,tickB,H,U,TRAIN,REC,canCraft,crafter},aiHero,heroOf,act,sim:(n,dt=.05)=>{for(let i=0;i<n&&G&&!G.over;i++)sim(dt)},get G(){return G},begin,ai,command,ui,camS,openCmd,setMode,craft,renderHUD,giveHeart,frame:()=>frame(performance.now(),.016),pickOpen:i=>{$('pick').querySelectorAll('.card')[i].click()}};
 })();
 </script>
 
